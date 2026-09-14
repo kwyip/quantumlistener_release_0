@@ -1,19 +1,66 @@
-flowchart TB
-  User[Quantum scientists / students / educators] -->|HTTPS| Nginx[Nginx on Amazon EC2]
-  subgraph EC2[Amazon EC2 or AgentCore Runtime]
-    UI[Simple podcast website] --> API[Flask backend API]
-    API --> Editor[Strands Weekly Editor agent loop]
-    Worker[Podcast worker] --> Editor
-    Editor --> Tools[Agent tools: arXiv Scout / Category Editor / Paper Listener / Evidence Editor / Podcast Writer / Publisher]
+flowchart LR
+  classDef aws fill:#232f3e,color:#fff,stroke:#ff9900,stroke-width:2px
+  classDef agent fill:#eef6ff,color:#102a43,stroke:#1473e6,stroke-width:2px
+  classDef data fill:#f3f8ee,color:#243b1d,stroke:#5a8f29,stroke-width:2px
+  classDef external fill:#fff,color:#333,stroke:#666,stroke-dasharray:4 3
+
+  arxiv[arXiv export API]:::external
+  listener[Web and RSS clients]:::external
+  reviewer[Human approval]:::external
+
+  subgraph intake[Scheduled ingestion pipeline]
+    direction LR
+    schedule[EventBridge Scheduler]:::aws --> queue[SQS queue]:::aws
+    queue -. failed runs .-> dlq[SQS dead-letter queue]:::aws
   end
-  Scheduler[Amazon EventBridge Scheduler] --> SQS[Amazon SQS + DLQ] --> Worker
-  Tools --> Arxiv[Official arXiv export API]
-  Editor <--> Bedrock[Amazon Bedrock]
-  Editor --> DDB[Amazon DynamoDB: papers / evidence / runs / publication lock]
-  Editor --> Polly[Amazon Polly] --> FFmpeg[FFmpeg segment normalization]
-  FFmpeg --> S3[Amazon S3: private drafts + published assets]
-  DDB --> API
-  S3 --> Output[Final weekly podcast / transcript / show notes / RSS]
-  Output --> UI
-  Editor --> CW[CloudWatch + OpenTelemetry]
-  Secrets[AWS Secrets Manager] --> EC2
+
+  subgraph runtime[AWS compute]
+    direction TB
+    worker[Worker on EC2 or<br/>Bedrock AgentCore Runtime]:::aws
+    api[Flask API behind Nginx]:::agent
+
+    subgraph strands[Strands Agents orchestration]
+      direction TB
+      editor[Weekly Editor agent]:::agent
+      scout[arXiv Scout]:::agent
+      category[Category Editor]:::agent
+      paper[Paper Listener]:::agent
+      evidence[Evidence Editor]:::agent
+      writer[Podcast Writer]:::agent
+      publisher[Publisher]:::agent
+      editor --> scout --> category --> paper --> evidence --> writer --> publisher
+    end
+
+    worker --> editor
+    api -->|manual run / approval| editor
+  end
+
+  subgraph intelligence[Model and speech pipeline]
+    direction TB
+    bedrock[Amazon Bedrock<br/>foundation model]:::aws
+    polly[Amazon Polly]:::aws
+    ffmpeg[FFmpeg<br/>chapter assembly]:::agent
+    polly --> ffmpeg
+  end
+
+  subgraph persistence[Storage and publication pipeline]
+    direction TB
+    ddb[DynamoDB<br/>papers, evidence, runs, locks]:::data
+    drafts[S3 private drafts]:::data
+    published[S3 published assets<br/>audio, transcript, notes, RSS]:::data
+    drafts -->|approved promotion| published
+  end
+
+  schedule --> queue --> worker
+  scout <-->|metadata| arxiv
+  editor <-->|Converse and tool calls| bedrock
+  writer -->|SSML| polly
+  ffmpeg --> drafts
+  reviewer -->|approve| api
+  publisher -->|conditional writes| ddb
+  publisher -->|atomic publication| published
+  ddb --> api
+  published --> api --> listener
+
+  secrets[Secrets Manager]:::aws --> runtime
+  runtime --> telemetry[CloudWatch and OpenTelemetry]:::aws
