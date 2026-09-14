@@ -1,10 +1,13 @@
 # QuantumListener
 
-**An autonomous weekly research-listening agent for the arXiv `quant-ph` community.** QuantumListener targets the Agents for Humans Hackathon **Pro Agents** track: it collects a precise weekly interval, deduplicates revisions, classifies and summarizes every paper with evidence labels, writes one five-chapter podcast, narrates it, waits for human approval, and atomically publishes a website and RSS feed.
+QuantumListener turns each week of arXiv `quant-ph` updates into an evidence-grounded,
+five-chapter podcast. It collects a precise weekly interval, deduplicates revisions,
+classifies and summarizes every paper, generates narration, waits for human approval,
+and atomically publishes a website and RSS feed.
 
 > Summaries are generated from arXiv metadata and abstracts, not peer-review or independent reproduction. Author claims remain explicitly attributed. Scientific judgment belongs to the listener.
 
-## Credential-free local demo
+## Run locally
 
 Python 3.12+ is required. FFmpeg is recommended; the Docker image includes it. Without FFmpeg the fixture writes a playable WAV-container fallback under the `.mp3` demo path and reports the limitation.
 
@@ -17,15 +20,17 @@ python -m app.web.server
 # open http://localhost:8080
 ```
 
-`make demo` uses five deterministic fixture records, one for each category. It never contacts AWS or creates a billable resource. The run produces `.quantumlistener/media/2026-W37/{episode.mp3,transcript.json,transcript.txt,show-notes.md}`, local records, and `feed.xml`.
+`make demo` uses five deterministic fixture records and does not contact AWS. It writes
+the episode, transcript, show notes, records, and RSS feed under `.quantumlistener/`.
 
 ## Agent architecture
 
 The **Weekly Editor** is a Strands Agent in AWS mode, backed by a configurable Amazon Bedrock model. It exposes Category Editor and Evidence Editor tools and coordinates arXiv Scout, Paper Listener, Podcast Writer, Audio Producer, and Publisher stages. The orchestration layer records only tool name, status, counters, and evidence warnings—not private reasoning. The fixture provider follows the same interfaces without an LLM so the offline demo is deterministic.
 
-See the [AWS Console-only walkthrough](docs/AWS_CONSOLE_SETUP.md), [baby-step CLI setup guide](docs/AWS_SETUP_GUIDE.md), [architecture](docs/architecture.svg), [AWS migration inventory](docs/AWS_MIGRATION_INVENTORY.md), and [data design](docs/DATA_MODEL.md).
+See the [architecture diagram](docs/architecture.svg),
+[AWS deployment guide](docs/AWS_SETUP_GUIDE.md), and [data model](docs/DATA_MODEL.md).
 
-## Configuration and AWS demo
+## AWS configuration
 
 Copy `.env.example`; do not add access keys. On EC2 use an instance profile; on AgentCore use its execution role. Choose a Bedrock text model enabled in your account and region—there is deliberately no hardcoded model ID.
 
@@ -38,12 +43,10 @@ export SQS_QUEUE_URL='<weekly queue URL>'
 make demo-aws
 ```
 
-`make demo-aws` uses the AWS credential chain and requires model access. AWS resources are not automatically provisioned. Review templates under `deployment/`, then create them explicitly if desired. Draft prefixes, prompts, logs, and intermediate audio must remain private; only validated publication objects should be served.
+`make demo-aws` uses the AWS credential chain and requires Bedrock model access. It does
+not provision resources. Deployment templates are under `deployment/`.
 
 ## Production deployment on EC2
-
-For an AWS web-interface path with no local CLI, follow [`docs/AWS_CONSOLE_SETUP.md`](docs/AWS_CONSOLE_SETUP.md). For exact CLI commands, Strands explanation, troubleshooting, cost checkpoints, and cleanup guidance, use [`docs/AWS_SETUP_GUIDE.md`](docs/AWS_SETUP_GUIDE.md).
-
 
 1. Review and deploy `deployment/{iam,sqs,eventbridge,ec2}` with your VPC, subnet, AMI, domain, architecture, instance type, and disk size. The EventBridge schedule is **disabled by default**.
 2. Install Docker and Compose on the host, create `/opt/quantumlistener/.env.production` with resource names (not keys), and use the EC2 instance profile.
@@ -76,7 +79,9 @@ The manual API requires `Authorization: Bearer $ADMIN_TOKEN` and supports `appro
 
 ## Routes
 
-All requested page and JSON routes are implemented: `/`, `/episodes`, `/episodes/{week}`, `/papers`, `/papers/{arxiv_id}`, `/feed.xml`, public `/api/v1` episode/paper/run reads, and protected digest/approve/publish controls. The API never serializes prompts, credentials, model messages, or private object keys.
+The server exposes `/`, `/episodes`, `/episodes/{week}`, `/papers`,
+`/papers/{arxiv_id}`, `/feed.xml`, public `/api/v1` reads, and protected
+digest/approve/publish controls.
 
 ## Safety and limits
 
