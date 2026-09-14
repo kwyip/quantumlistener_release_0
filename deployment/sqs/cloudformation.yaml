@@ -1,0 +1,6 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  DeadLetterQueue: {Type: AWS::SQS::Queue, Properties: {QueueName: quantumlistener-dlq, MessageRetentionPeriod: 1209600}}
+  WeeklyQueue:
+    Type: AWS::SQS::Queue
+    Properties: {QueueName: quantumlistener-weekly, VisibilityTimeout: 900, RedrivePolicy: {deadLetterTargetArn: {Fn::GetAtt: [DeadLetterQueue, Arn]}, maxReceiveCount: 3}}

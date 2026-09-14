@@ -1,0 +1,19 @@
+flowchart TB
+  User[Quantum scientists / students / educators] -->|HTTPS| Nginx[Nginx on Amazon EC2]
+  subgraph EC2[Amazon EC2 or AgentCore Runtime]
+    UI[Simple podcast website] --> API[Flask backend API]
+    API --> Editor[Strands Weekly Editor agent loop]
+    Worker[Podcast worker] --> Editor
+    Editor --> Tools[Agent tools: arXiv Scout / Category Editor / Paper Listener / Evidence Editor / Podcast Writer / Publisher]
+  end
+  Scheduler[Amazon EventBridge Scheduler] --> SQS[Amazon SQS + DLQ] --> Worker
+  Tools --> Arxiv[Official arXiv export API]
+  Editor <--> Bedrock[Amazon Bedrock]
+  Editor --> DDB[Amazon DynamoDB: papers / evidence / runs / publication lock]
+  Editor --> Polly[Amazon Polly] --> FFmpeg[FFmpeg segment normalization]
+  FFmpeg --> S3[Amazon S3: private drafts + published assets]
+  DDB --> API
+  S3 --> Output[Final weekly podcast / transcript / show notes / RSS]
+  Output --> UI
+  Editor --> CW[CloudWatch + OpenTelemetry]
+  Secrets[AWS Secrets Manager] --> EC2

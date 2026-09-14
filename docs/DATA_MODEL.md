@@ -1,0 +1,5 @@
+# DynamoDB and S3 data design
+
+One DynamoDB table uses `PK` and `SK`: `PAPER#id / VERSION#0001` preserves every revision; `RUN#week / RUN#id` stores weekly runs; `AGENT#run / EVENT#timestamp#id` stores concise tool events; `CLAIM#paper / CLAIM#id` stores labels/evidence; `EPISODE#week / METADATA`, `CHAPTER#nn`, and `CORRECTION#timestamp` store podcast state; `PUBLICATION / CURRENT` is the public pointer; and `LOCK#week / LOCK` is acquired with `attribute_not_exists(PK) OR expires < :now`. A transactional write publishes an episode and moves the pointer. Drafts never appear in public queries.
+
+S3 published keys are `episodes/YYYY-Www/episode.mp3`, optional `appendix.mp3`, `cover.webp`, `transcript.json`, `transcript.txt`, `show-notes.md`, `manifest.json`, and root `feed.xml`. Draft prompts, segment audio, and logs live under private `drafts/run-id/` keys. Bucket public access remains blocked; production may proxy published objects, use scoped bucket policy, or issue short-lived signed URLs. CloudFront is optional.

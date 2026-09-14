@@ -1,0 +1,6 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters: {QueueArn: {Type: String}, SchedulerRoleArn: {Type: String}}
+Resources:
+  WeeklySchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties: {ScheduleExpression: 'cron(0 9 ? * MON *)', FlexibleTimeWindow: {Mode: 'OFF'}, State: DISABLED, Target: {Arn: {Ref: QueueArn}, RoleArn: {Ref: SchedulerRoleArn}, Input: '{"type":"weekly_digest","human_approval":true}'}}
